@@ -14,20 +14,20 @@ MonoBehaviour:
   m_EditorClassIdentifier: Lampkeeper::Lampkeeper.Visual.LightingProfile
   globalIntensity: 0.12
   coreRadiusRatio: 0.4
-  coreIntensity: 1.3
+  coreIntensity: 1.5
   coreFalloff: 0.6
   haloRadiusScale: 1
   haloInnerRatio: 0.3
   haloIntensity: 0.8
   haloFalloff: 0.35
-  haloVolumeIntensity: 0.12
+  haloVolumeIntensity: 0.18
   emberIntensity: 0.6
   emberFalloff: 0.5
   emberVolumeIntensity: 0.06
   shadowIntensity: 0.9
   shadowSoftness: 0.3
-  shadowVolumeIntensity: 0.85
-  terrainRimDepth: 0.3
+  shadowVolumeIntensity: 1
+  terrainShadowTrim: 0
   flickerSpeed: 2.2
   flickerIntensityAmount: 0.08
   flickerRadiusAmount: 0.02

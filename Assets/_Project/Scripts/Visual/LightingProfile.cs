@@ -50,7 +50,7 @@ namespace Lampkeeper.Visual
         [Range(0f, 1f)] public float shadowSoftness = 0.3f;
 
         [Tooltip("공기 중의 빛이 벽에 가려지는 정도 (벽 뒤로 드리우는 빛줄기 그림자)")]
-        [Range(0f, 1f)] public float shadowVolumeIntensity = 0.85f;
+        [Range(0f, 1f)] public float shadowVolumeIntensity = 1f;
 
         [Tooltip("지형 그림자 모양을 블록 안쪽으로 줄이는 양 (유닛). 크게 하면 벽 모서리로 빛이 샌다.")]
         [Min(0f)] public float terrainShadowTrim = 0f;
