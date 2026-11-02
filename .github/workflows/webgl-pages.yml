@@ -1,0 +1,83 @@
+# main에 푸시할 때마다 WebGL로 빌드해서 GitHub Pages에 올린다.
+# 필요한 저장소 설정 (Settings):
+#   - Secrets and variables → Actions: UNITY_LICENSE (.ulf 파일 내용), UNITY_EMAIL, UNITY_PASSWORD
+#   - Pages → Build and deployment → Source: GitHub Actions
+name: WebGL → GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.license.outputs.ready }}
+    steps:
+      - name: Unity 라이선스 확인
+        id: license
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+        run: |
+          if [ -z "$UNITY_LICENSE" ]; then
+            echo "::warning::UNITY_LICENSE 시크릿이 없어 WebGL 빌드를 건너뜁니다. README의 '웹에서 플레이' 항목을 참고하세요."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Unity 에디터 이미지가 커서 기본 러너 디스크가 부족할 수 있다.
+      - name: 디스크 공간 확보
+        if: steps.license.outputs.ready == 'true'
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: false
+
+      - uses: actions/checkout@v4
+        if: steps.license.outputs.ready == 'true'
+
+      - uses: actions/cache@v4
+        if: steps.license.outputs.ready == 'true'
+        with:
+          path: Library
+          key: Library-WebGL-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: Library-WebGL-
+
+      - name: WebGL 빌드
+        if: steps.license.outputs.ready == 'true'
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          targetPlatform: WebGL
+          buildMethod: Lampkeeper.Editor.WebBuild.BuildForCI
+          buildsPath: build
+          buildName: Lampkeeper
+
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.license.outputs.ready == 'true'
+        with:
+          path: build/WebGL/Lampkeeper
+
+  deploy:
+    needs: build
+    if: needs.build.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

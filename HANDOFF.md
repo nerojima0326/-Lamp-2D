@@ -14,6 +14,8 @@
   - `Lampkeeper/그레이박스 씬 만들기` — 테스트 씬 전체를 새로 만든다 (레벨, 플레이어, 등불, 빛 발판, 카메라, 순간이동 지점) + 마지막에 비주얼 패스 적용. 기존 설정 에셋은 재사용.
   - `Tools/Lampkeeper/Apply Visual Pass` — 현재 씬에 빛·그림자·색을 입힌다. 멱등 (찾아서 없으면 만들기).
   - `Lampkeeper/URP 2D 렌더러 설정` — URP 2D 파이프라인 에셋 생성·지정 (이미 적용됨).
+  - `Lampkeeper/웹 빌드 (WebGL)` — `Builds/WebGL`에 웹 빌드 (`Editor/WebBuild.cs`). 이 PC의 6000.5.2f1에는 Web Build Support 모듈이 아직 없다.
+- 웹 플레이: `main` 푸시 → GitHub Actions(`.github/workflows/webgl-pages.yml`, game-ci)가 WebGL 빌드 → https://nerojima0326.github.io/-Lamp-2D/ . 저장소에 Pages 소스(GitHub Actions)와 시크릿 `UNITY_LICENSE`/`UNITY_EMAIL`/`UNITY_PASSWORD`가 있어야 한다 (README 참고). 시크릿이 없으면 워크플로는 경고만 남기고 건너뛴다. 웹 빌드는 릴리스 빌드라 숫자 키 순간이동이 꺼져 있다.
 - 조작: 이동 A/D·방향키·왼쪽 스틱, 점프 Space/Z/게임패드 A, 대시 왼쪽·오른쪽 Shift/게임패드 RB, 등불 던지기·회수 X/J/게임패드 X (방향키로 8방향 조준)
 - 테스트용 순간이동: 플레이 중 숫자 키 1~5 (시작 / 간격 점프 / 떠 있는 계단·낙하 / 빛 발판 / 대시와 등불 시험 구간). 에디터·개발 빌드에서만.
 - 튜닝: `Assets/_Project/Data/` 의 ScriptableObject. 플레이 중 바꾸면 바로 반영되고 플레이를 멈춰도 유지된다.
