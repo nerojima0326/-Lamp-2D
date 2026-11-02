@@ -21,7 +21,7 @@ namespace Lampkeeper.Light
 
         [Header("들고 있기")]
         [Tooltip("플레이어 중심에서 등불을 드는 위치. x는 바라보는 방향으로 뒤집힌다.")]
-        public Vector2 holdOffset = new Vector2(0.45f, 0.25f);
+        public Vector2 holdOffset = new Vector2(0.4f, -0.32f);
 
         [Header("던지기")]
         [Tooltip("던진 등불이 날아가는 속도 (유닛/초)")]

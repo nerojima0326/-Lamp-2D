@@ -14,5 +14,11 @@ namespace Lampkeeper.Visual
 
         [Tooltip("표면 띠의 정렬 순서. 플레이어보다 높으면 발이 살짝 묻혀 땅에 붙어 보인다.")]
         public int surfaceSortingOrder = 15;
+
+        [Header("시작 구간 질감 미리보기")]
+        [Tooltip("이 X 좌표보다 왼쪽에서 시작하는 지형에 돌 질감을 적용한다.")]
+        public float texturePreviewEndX = 30f;
+        [Tooltip("돌 무늬의 색과 불투명도")]
+        public Color textureColor = new Color(0.65f, 0.7f, 0.8f, 0.32f);
     }
 }

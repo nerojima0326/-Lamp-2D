@@ -16,6 +16,7 @@ namespace Lampkeeper.Player
         readonly InputAction move;
         readonly InputAction jump;
         readonly InputAction lantern;
+        readonly InputAction dash;
 
         public PlayerInputReader()
         {
@@ -43,6 +44,11 @@ namespace Lampkeeper.Player
             lantern.AddBinding("<Keyboard>/x");
             lantern.AddBinding("<Keyboard>/j");
             lantern.AddBinding("<Gamepad>/buttonWest");
+
+            dash = new InputAction("Dash", InputActionType.Button);
+            dash.AddBinding("<Keyboard>/leftShift");
+            dash.AddBinding("<Keyboard>/rightShift");
+            dash.AddBinding("<Gamepad>/rightShoulder");
         }
 
         /// <summary>이동·조준 입력. x는 좌우 이동, 전체 벡터는 등불 조준에 쓴다.</summary>
@@ -53,12 +59,14 @@ namespace Lampkeeper.Player
         public bool JumpHeld => jump.IsPressed();
 
         public bool LanternPressedThisFrame => lantern.WasPressedThisFrame();
+        public bool DashPressedThisFrame => dash.WasPressedThisFrame();
 
         public void Enable()
         {
             move.Enable();
             jump.Enable();
             lantern.Enable();
+            dash.Enable();
         }
 
         public void Disable()
@@ -66,6 +74,7 @@ namespace Lampkeeper.Player
             move.Disable();
             jump.Disable();
             lantern.Disable();
+            dash.Disable();
         }
 
         public void Dispose()
@@ -73,6 +82,7 @@ namespace Lampkeeper.Player
             move.Dispose();
             jump.Dispose();
             lantern.Dispose();
+            dash.Dispose();
         }
     }
 }

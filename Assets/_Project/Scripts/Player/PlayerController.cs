@@ -31,6 +31,7 @@ namespace Lampkeeper.Player
             // 상승/하강 중력이 다르므로 중력은 Rigidbody2D가 아니라 PlayerMotor가 계산한다.
             body.gravityScale = 0f;
             body.freezeRotation = true;
+            body.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
 
             if (settings == null)
             {
@@ -56,13 +57,18 @@ namespace Lampkeeper.Player
             body.position = position;
             transform.position = position;
             body.linearVelocity = Vector2.zero;
+            Motor?.ResetDash();
             if (lantern != null)
                 lantern.SnapToHand();
         }
 
         void OnEnable() => input?.Enable();
 
-        void OnDisable() => input?.Disable();
+        void OnDisable()
+        {
+            input?.Disable();
+            Motor?.ResetDash();
+        }
 
         void OnDestroy() => input?.Dispose();
 
@@ -71,6 +77,8 @@ namespace Lampkeeper.Player
             // 버튼 입력은 렌더 프레임 단위로 들어오므로 여기서 받아 버퍼에 넣고, 점프 자체는 FixedUpdate에서 처리한다.
             if (input.JumpPressedThisFrame)
                 Motor.RequestJump();
+            if (input.DashPressedThisFrame)
+                Motor.RequestDash();
 
             if (lantern != null)
             {

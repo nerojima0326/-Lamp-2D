@@ -14,8 +14,8 @@
   - `Lampkeeper/그레이박스 씬 만들기` — 테스트 씬 전체를 새로 만든다 (레벨, 플레이어, 등불, 빛 발판, 카메라, 순간이동 지점) + 마지막에 비주얼 패스 적용. 기존 설정 에셋은 재사용.
   - `Tools/Lampkeeper/Apply Visual Pass` — 현재 씬에 빛·그림자·색을 입힌다. 멱등 (찾아서 없으면 만들기).
   - `Lampkeeper/URP 2D 렌더러 설정` — URP 2D 파이프라인 에셋 생성·지정 (이미 적용됨).
-- 조작: 이동 A/D·방향키·왼쪽 스틱, 점프 Space/Z/게임패드 A, 등불 던지기·회수 X/J/게임패드 X (방향키로 8방향 조준)
-- 테스트용 순간이동: 플레이 중 숫자 키 1~4 (시작 / 간격 점프 / 떠 있는 계단·낙하 / 빛 발판 구간). 에디터·개발 빌드에서만.
+- 조작: 이동 A/D·방향키·왼쪽 스틱, 점프 Space/Z/게임패드 A, 대시 왼쪽·오른쪽 Shift/게임패드 RB, 등불 던지기·회수 X/J/게임패드 X (방향키로 8방향 조준)
+- 테스트용 순간이동: 플레이 중 숫자 키 1~5 (시작 / 간격 점프 / 떠 있는 계단·낙하 / 빛 발판 / 대시와 등불 시험 구간). 에디터·개발 빌드에서만.
 - 튜닝: `Assets/_Project/Data/` 의 ScriptableObject. 플레이 중 바꾸면 바로 반영되고 플레이를 멈춰도 유지된다.
 
 ## 2. 완료된 것
@@ -49,6 +49,51 @@
 - 블록은 Transform 스케일 대신 SpriteRenderer Sliced 크기 + BoxCollider2D 크기로 만든다 (그림자 모양이 늘어나지 않게). 충돌 크기는 이전과 같다.
 
 ## 4. 다음 할 일
+
+### 대시·등불 시험 구간
+
+- `DashTrialSetup` 메뉴로 기존 `M1_Greybox`에 별도 구간을 추가하고 저장했다. 플레이 중 숫자 5로 진입·재시작한다. 기존 맵과 물리적으로 떨어진 테스트 구역이다.
+- 시작 지대 → 7.5유닛 틈(점프+대시) → 중간 지대 → 6.5유닛 틈과 빛 발판(앞으로 등불을 던진 뒤 점프+대시) → 도착 지대. 밑에는 안전 바닥과 복귀 계단이 있다. 빛 발판과 도착 지대 사이도 점프로 건넌다.
+- 씬을 다시 만들 때도 `GreyboxSceneBuilder`가 생성하며, `Tools/Lampkeeper/Apply Dash Trial`을 반복 실행해 재적용할 수 있다. 변경: `Editor/DashTrialSetup.cs`, `Editor/GreyboxSceneBuilder.cs`, `Scenes/M1_Greybox.unity`, 메타 파일, 이 문서.
+- Unity 컴파일, 메뉴 실행 및 씬 저장 확인. 자동 UI 입력으로 연속 이동을 조작할 수 없어 전체 통과 난이도는 실제 플레이 검증이 필요하다.
+
+### Shift 대시·잔상 — 적용됨
+
+- `PlayerInputReader`에 양쪽 Shift 및 게임패드 RB 바인딩. 한 번 누를 때 한 번 실행한다.
+- `PlayerMotor`에서 마지막으로 바라보는 방향으로 수평 대시. 방향 전환은 대시가 끝난 뒤 반영한다. 지상·공중 모두 가능하며 대시 중 수직 속도는 0, 종료 후 중력이 다시 적용된다. 공중 대시 횟수 제한·무적은 없다.
+- `PlayerMovementSettings`: 속도 22, 지속시간 0.16초(장애물 없을 때 3.52유닛), 시작 기준 재사용 대기 0.55초. 재사용 대기 중 입력은 예약하지 않는다. 대시 종료 시 달리기 속도로 제한하고, 순간이동/비활성화 시 대시를 초기화한다. Rigidbody2D 연속 충돌 판정을 사용한다.
+- `PlayerDashTrail`은 애니메이션 갱신 뒤 현재 스프라이트/방향/월드 위치를 복사한다. 독립적인 잔상 풀 12개를 재사용하며 비활성화/파괴 시 정리한다. `DashTrailSettings`에서 생성 간격 0.025초, 수명 0.22초, 푸른색·투명도를 조정한다. Unlit 재질로 어둠에서도 잔상이 보인다.
+- `Tools/Lampkeeper/Apply Player Dash`를 실행해 `M1_Greybox`에 연결·저장했다. Visual Pass와 씬 재생성에도 연결된다. 현재 씬에는 수동 작업이 필요 없다.
+- 변경: `Scripts/Player/{PlayerInputReader,PlayerMotor,PlayerController,PlayerMovementSettings}.cs`, `Scripts/Visual/{PlayerDashTrail,DashTrailSettings}.cs`, `Editor/{PlayerDashSetup,VisualPass}.cs`, `Tests/EditMode/PlayerDashTests.cs`, `Data/Visual/DashTrailSettings.asset`, `Art/Characters/Animation/DashAfterimage.mat`, `Scenes/M1_Greybox.unity` 및 메타 파일.
+- Unity EditMode **79/79 통과**(대시 9개 추가: 좌우 방향, 방향 고정, 고정 시간 간격별 거리, 낙하 복귀, 쿨다운/중복 입력, 공중 점프 방지, 초기화). 플레이 진입 확인. 사용자가 플레이 중이라 UI의 Shift 입력 시도가 차단되어 실제 잔상 화면 검증은 완료하지 못했다. 플레이 모드는 유지했다.
+
+### 등불 위치·불꽃 애니메이션 — 적용됨
+
+- `M1_Greybox`에 적용·저장. `LanternSettings.holdOffset`을 `(0.4, -0.32)`로 내려 손 아래에 들도록 하고, 등불 셀 높이를 0.65로 줄였다. 판정과 화면 빛은 같은 Lantern 위치를 따른다. 빛 반경·던지기 속도 등은 유지했다.
+- `Art/Characters/Animation/Lantern_Flame.png`: 기존 Simple 등불을 참조한 내장 이미지 생성 결과. 프롬프트는 동일한 청동 프레임, 투명 배경, 2×2 배열, 불꽃만 왼쪽/중앙/오른쪽/중앙으로 흔들리는 단순 픽셀 이미지. 각 셀의 불투명 영역 중심을 기준점으로 맞춘 Sprite 4개를 `LanternFrames`에 생성했다.
+- `LanternFlameAnimation`이 초당 6프레임으로 반복 재생. `Data/Visual/LanternFlameSettings`에서 FPS와 셀 높이를 실시간 조절한다. 최초 설치만 손 위치를 변경하며 재적용 시 위치 튜닝을 보존한다.
+- 적용 메뉴: `Tools/Lampkeeper/Apply Lantern Animation`. 전체 Visual Pass 및 씬 빌더에도 연결했다. 현재 씬은 별도 수동 적용이 필요 없다.
+- 변경 파일: `Scripts/Light/LanternSettings.cs`, `Scripts/Visual/LanternFlameAnimation.cs`, `Scripts/Visual/LanternFlameSettings.cs`, `Editor/LanternVisualSetup.cs`, `Editor/VisualPass.cs`, 위 이미지·프레임 에셋, `Data/LanternSettings.asset`, `Data/Visual/LanternFlameSettings.asset`, `Scenes/M1_Greybox.unity` 및 메타 파일.
+- Unity 컴파일 및 플레이 화면의 등불 위치·스프라이트 표시 확인. 이번 비주얼 변경에서 EditMode 테스트는 재실행하지 않았다(직전 결과 70/70). 사용자 플레이 입력이 감지되어 플레이 모드를 유지했다.
+
+### 플레이어 이동 애니메이션 — 적용됨
+
+- `Art/Characters/Animation/Lampkeeper_Movement.png`: 단순 픽셀 캐릭터를 참조해 내장 이미지 생성 도구로 만든 4×4 시트. 행 순서 대기/달리기/점프 상승/낙하, 각 4프레임. 프롬프트 방향: 동일한 남색 후드 아이, 오른쪽 측면, 투명 배경, 작은 픽셀과 제한된 색상, 모션별 4프레임.
+- `PlayerAnimationSetup`이 시트를 Sprite 에셋 16개로 분할하고 발 아래 기준점을 맞춰 `M1_Greybox`에 연결·저장했다. 메뉴 `Tools/Lampkeeper/Apply Player Animation`. `Apply Visual Pass`와 씬 빌더에서도 연결된다.
+- `PlayerSpriteAnimation`이 Motor의 접지/방향과 Rigidbody2D 속도를 읽어 프레임을 재생한다. Animator Controller 대신 SpriteSequence 기반 프레임 애니메이션이다. 이동과 충돌 로직은 변경하지 않았다. 기존 PlayerFacingVisual은 해당 Visual에서 제거하고 방향 반전도 애니메이션이 처리한다.
+- `Data/Visual/PlayerAnimationSettings`에서 각 동작의 FPS, 반복 여부, 크기와 위치를 플레이 중 튜닝한다. 착지 시 접지 결과에 따라 대기/달리기로 즉시 복귀한다.
+- Unity 컴파일, 씬 저장, 플레이 모드 이미지 표시 확인. EditMode 70/70 통과(새 애니메이션 테스트 8개 포함). 자동 UI 도구가 키 홀드를 지원하지 않아 실제 달리기·연속 점프의 시각적 타이밍 검증은 남아 있다.
+- 이전 문단의 '정지 이미지' 및 Simple 이미지 적용 대기 기록은 과거 상태다. 현재 플레이어는 위 애니메이션 시트를 사용한다. 등불은 별도 스프라이트와 기존 던지기/회수 동작을 유지한다.
+
+적 감지 카메라 줌을 `M1_Greybox`에 적용·저장했다. `Tools/Lampkeeper/Apply Encounter Camera`로 기존 씬에도 연결한다. 혼자 있을 때 Orthographic Size 4.5, 적 근처에서는 7, 적이 사라진 뒤 1.2초 후 복귀한다. `Data/Visual/EncounterCameraSettings`에서 플레이 중 튜닝한다. 현재 적 AI/적 오브젝트는 없으므로, 향후 적의 비주얼 루트에 `EnemyCameraTarget`을 붙이고 사망 시 비활성화해야 한다. 감지는 화면 직사각형 기준이며 벽/어둠의 가림은 고려하지 않는다. Unity EditMode 테스트 62/62 통과 (줌 테스트 6개 포함).
+
+시작 구간 지형 질감 미리보기를 비주얼 패스로 적용했다. `TerrainStyle`의 Texture Preview End X와 Texture Color로 범위·색을 조정하고 메뉴를 재실행한다. 실제 플레이에서 질감의 가시성은 추가 확인이 필요하다.
+
+캐릭터와 등불의 이미지 스프라이트를 `M1_Greybox` 씬에 적용하고 저장했다 (`Art/Characters/`). 비주얼 패스가 기존 네모를 교체하고 플레이어 방향 반전을 연결하며, Unity 게임 뷰에서 스프라이트 표시를 확인했다. `Data/Visual/CharacterVisualStyle`에서 크기와 위치를 조정한 후 메뉴를 재실행한다. 정지 이미지이며 달리기·점프 애니메이션은 아직 없다. 실제 플레이에서 움직임과 크기·정렬은 추가 확인이 필요하다.
+
+현재 씬에는 별도로 생성한 `Lampkeeper_Pixel.png`, `Lantern_Pixel.png` 픽셀 아트 버전을 적용했다. 원본 일러스트는 같은 폴더에 보관한다. 픽셀 버전은 Point 필터와 무압축으로 가져온다.
+
+더 단순한 픽셀 버전 `Lampkeeper_Simple.png`, `Lantern_Simple.png`을 추가하고 비주얼 패스가 이 파일을 사용하도록 변경했다. Unity 창 접근 실패로 씬에는 아직 적용하지 못했다. Ctrl+R 후 `Tools/Lampkeeper/Apply Visual Pass`를 실행해 적용·저장하고 화면을 확인해야 한다.
 
 1. **비주얼 2단계 지형 질감** — 결정 필요: 레이아웃에 0.5·2.2 같은 비정수 좌표가 있어 1칸 Tilemap/Rule Tile에 그대로 안 맞는다.
    - (A) 현재 블록에 절차적 9-슬라이스 텍스처(윗면 하이라이트, 불규칙 윤곽, 돌 노이즈, 이끼) — 레이아웃 그대로

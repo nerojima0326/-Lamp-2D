@@ -1,5 +1,7 @@
 using System.Collections.Generic;
+using System.IO;
 using Lampkeeper.Light;
+using Lampkeeper.Player;
 using Lampkeeper.Visual;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -19,11 +21,16 @@ namespace Lampkeeper.Editor
         const string PalettePath = "Assets/_Project/Data/Visual/VisualPalette.asset";
         const string LightingProfilePath = "Assets/_Project/Data/Visual/LightingProfile.asset";
         const string TerrainStylePath = "Assets/_Project/Data/Visual/TerrainStyle.asset";
+        const string CharacterStylePath = "Assets/_Project/Data/Visual/CharacterVisualStyle.asset";
 
         // 그레이박스 빌더가 쓰는 이름 규칙
         const string LevelRootName = "Level";
 
         const string SurfaceNamePrefix = "Surface";
+        const string TextureChildName = "[Visual] Rock Texture";
+        const string RockTexturePath = "Assets/_Project/Art/Greybox/RockTexture.png";
+        const string PlayerSpritePath = "Assets/_Project/Art/Characters/Lampkeeper_Simple.png";
+        const string LanternSpritePath = "Assets/_Project/Art/Characters/Lantern_Simple.png";
 
         const string SceneLightingName = "[Visual] Scene Lighting";
         const string GlobalLightName = "Global Light 2D";
@@ -45,13 +52,76 @@ namespace Lampkeeper.Editor
             VisualPalette palette = EditorAssetUtility.LoadOrCreateAsset(PalettePath, () => ScriptableObject.CreateInstance<VisualPalette>());
             LightingProfile profile = EditorAssetUtility.LoadOrCreateAsset(LightingProfilePath, () => ScriptableObject.CreateInstance<LightingProfile>());
             TerrainStyle terrainStyle = EditorAssetUtility.LoadOrCreateAsset(TerrainStylePath, () => ScriptableObject.CreateInstance<TerrainStyle>());
+            CharacterVisualStyle characterStyle = EditorAssetUtility.LoadOrCreateAsset(CharacterStylePath, () => ScriptableObject.CreateInstance<CharacterVisualStyle>());
             AssetDatabase.SaveAssets();
 
             ApplySceneLighting(palette, profile);
             ApplyLightSources(palette, profile);
             ApplyTerrain(palette, profile, terrainStyle);
             ApplyLightPlatforms(palette);
+            ApplyCharacterSprites(characterStyle);
+            PlayerAnimationSetup.Apply(scene);
+            LanternVisualSetup.Apply(scene);
+            PlayerDashSetup.Apply(scene);
             EditorSceneManager.MarkSceneDirty(scene);
+        }
+
+        static void ApplyCharacterSprites(CharacterVisualStyle style)
+        {
+            Sprite playerSprite = LoadCharacterSprite(PlayerSpritePath);
+            Sprite lanternSprite = LoadCharacterSprite(LanternSpritePath);
+            foreach (PlayerController player in Object.FindObjectsByType<PlayerController>(FindObjectsInactive.Include))
+            {
+                Transform visual = player.transform.Find("Visual");
+                if (visual == null || playerSprite == null) continue;
+                SpriteRenderer renderer = visual.GetComponent<SpriteRenderer>();
+                if (renderer == null) continue;
+                renderer.sprite = playerSprite;
+                renderer.color = Color.white;
+                renderer.drawMode = SpriteDrawMode.Simple;
+                visual.localScale = Vector3.one * (style.playerHeight / playerSprite.bounds.size.y);
+                visual.localPosition = style.playerOffset;
+                var facing = EditorAssetUtility.GetOrAddComponent<PlayerFacingVisual>(visual.gameObject);
+                EditorAssetUtility.SetReference(facing, "player", player);
+                EditorAssetUtility.SetReference(facing, "spriteRenderer", renderer);
+            }
+            foreach (Lantern lantern in Object.FindObjectsByType<Lantern>(FindObjectsInactive.Include))
+            {
+                Transform visual = lantern.transform.Find("Visual");
+                if (visual == null || lanternSprite == null) continue;
+                SpriteRenderer renderer = visual.GetComponent<SpriteRenderer>();
+                if (renderer == null) continue;
+                renderer.sprite = lanternSprite;
+                renderer.color = Color.white;
+                renderer.drawMode = SpriteDrawMode.Simple;
+                visual.localScale = Vector3.one * (style.lanternHeight / lanternSprite.bounds.size.y);
+            }
+        }
+
+        static Sprite LoadCharacterSprite(string path)
+        {
+            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer == null)
+            {
+                Debug.LogWarning($"캐릭터 스프라이트가 없습니다: {path}");
+                return null;
+            }
+            var settings = new TextureImporterSettings();
+            importer.ReadTextureSettings(settings);
+            if (importer.textureType != TextureImporterType.Sprite || settings.spriteMeshType != SpriteMeshType.FullRect
+                || settings.filterMode != FilterMode.Point || importer.textureCompression != TextureImporterCompression.Uncompressed)
+            {
+                settings.textureType = TextureImporterType.Sprite;
+                settings.spriteMode = (int)SpriteImportMode.Single;
+                settings.spriteMeshType = SpriteMeshType.FullRect;
+                settings.mipmapEnabled = false;
+                settings.filterMode = FilterMode.Point;
+                importer.SetTextureSettings(settings);
+                importer.alphaIsTransparency = true;
+                importer.textureCompression = TextureImporterCompression.Uncompressed;
+                importer.SaveAndReimport();
+            }
+            return AssetDatabase.LoadAssetAtPath<Sprite>(path);
         }
 
         static void ApplySceneLighting(VisualPalette palette, LightingProfile profile)
@@ -137,6 +207,7 @@ namespace Lampkeeper.Editor
                     blocks.Add(collider);
             }
             List<Rect> terrain = blocks.ConvertAll(WorldRect);
+            Sprite rockTexture = LoadOrCreateRockTexture();
 
             bool hasScaledBlocks = false;
             for (int i = 0; i < blocks.Count; i++)
@@ -147,6 +218,7 @@ namespace Lampkeeper.Editor
                     renderer.color = palette.terrainColor;
                 EditorAssetUtility.GetOrAddComponent<ShadowCaster2D>(block.gameObject);
                 RebuildSurfaces(block, renderer, terrain[i], terrain, palette, terrainStyle);
+                ApplyRockTexture(block, renderer, terrain[i], rockTexture, terrainStyle);
                 hasScaledBlocks |= block.localScale != Vector3.one;
             }
 
@@ -156,6 +228,75 @@ namespace Lampkeeper.Editor
 
             if (hasScaledBlocks)
                 Debug.LogWarning("지형 블록이 Transform 스케일로 크기를 정하고 있어 그림자 가장자리가 정확하지 않습니다. 'Lampkeeper/그레이박스 씬 만들기'로 씬을 다시 만드세요.");
+        }
+
+        static void ApplyRockTexture(Transform block, SpriteRenderer body, Rect rect, Sprite texture, TerrainStyle style)
+        {
+            Transform existing = block.Find(TextureChildName);
+            if (rect.xMin >= style.texturePreviewEndX || body == null || texture == null)
+            {
+                if (existing != null) Object.DestroyImmediate(existing.gameObject);
+                return;
+            }
+
+            if (existing == null)
+            {
+                existing = new GameObject(TextureChildName).transform;
+                existing.SetParent(block, false);
+            }
+            existing.localPosition = Vector3.zero;
+            existing.localRotation = Quaternion.identity;
+            existing.localScale = Vector3.one;
+            var renderer = EditorAssetUtility.GetOrAddComponent<SpriteRenderer>(existing.gameObject);
+            renderer.sprite = texture;
+            renderer.drawMode = SpriteDrawMode.Tiled;
+            renderer.size = body.size;
+            renderer.color = style.textureColor;
+            renderer.sortingLayerID = body.sortingLayerID;
+            renderer.sortingOrder = body.sortingOrder + 1;
+        }
+
+        // 이음새가 이어지는 작은 돌 무늬. 콜라이더나 그림자 형태에는 영향을 주지 않는다.
+        static Sprite LoadOrCreateRockTexture()
+        {
+            if (!File.Exists(RockTexturePath))
+            {
+                const int size = 64;
+                var texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+                for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
+                {
+                    // 정수 주기의 삼각 함수로 타일 양 끝의 무늬가 자연스럽게 이어진다.
+                    float a = x * Mathf.PI * 2f / size;
+                    float b = y * Mathf.PI * 2f / size;
+                    float grain = Mathf.Sin(a * 5f + Mathf.Sin(b * 3f)) * Mathf.Cos(b * 7f + a * 2f);
+                    float strata = Mathf.Sin(b * 4f + Mathf.Sin(a * 2f) * 1.2f);
+                    float alpha = Mathf.Clamp01((grain * 0.45f + strata * 0.55f - 0.25f) * 0.65f);
+                    texture.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
+                }
+                texture.Apply();
+                EditorAssetUtility.EnsureFolder(EditorAssetUtility.ParentFolder(RockTexturePath));
+                File.WriteAllBytes(RockTexturePath, texture.EncodeToPNG());
+                Object.DestroyImmediate(texture);
+                AssetDatabase.ImportAsset(RockTexturePath);
+            }
+
+            var importer = (TextureImporter)AssetImporter.GetAtPath(RockTexturePath);
+            var settings = new TextureImporterSettings();
+            importer.ReadTextureSettings(settings);
+            if (importer.textureType != TextureImporterType.Sprite || settings.spriteMeshType != SpriteMeshType.FullRect || settings.spritePixelsPerUnit != 32f)
+            {
+                settings.textureType = TextureImporterType.Sprite;
+                settings.spriteMode = (int)SpriteImportMode.Single;
+                settings.spritePixelsPerUnit = 32f;
+                settings.spriteMeshType = SpriteMeshType.FullRect;
+                settings.filterMode = FilterMode.Bilinear;
+                settings.mipmapEnabled = false;
+                importer.SetTextureSettings(settings);
+                importer.textureCompression = TextureImporterCompression.Uncompressed;
+                importer.SaveAndReimport();
+            }
+            return AssetDatabase.LoadAssetAtPath<Sprite>(RockTexturePath);
         }
 
         static Rect WorldRect(BoxCollider2D collider)

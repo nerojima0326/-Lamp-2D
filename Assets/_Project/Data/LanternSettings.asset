@@ -16,7 +16,7 @@ MonoBehaviour:
   lightIntensity: 1
   emberRadius: 0.6
   emberIntensity: 0.3
-  holdOffset: {x: 0.45, y: 0.25}
+  holdOffset: {x: 0.4, y: -0.32}
   throwSpeed: 24
   throwDistance: 7
   aimDeadzone: 0.35

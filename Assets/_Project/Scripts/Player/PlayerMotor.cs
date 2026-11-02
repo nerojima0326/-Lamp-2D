@@ -15,12 +15,17 @@ namespace Lampkeeper.Player
     {
         // 바닥 캐스트에 닿아도 위로 움직이는 중이면(점프 직후) 접지로 보지 않는다.
         const float GroundedMaxVerticalSpeed = 0.01f;
+        const float TimerTolerance = 0.000001f;
 
         readonly PlayerMovementSettings settings;
 
         float coyoteTimer;
         float jumpBufferTimer;
         float lastOutputVelocityY;
+        float dashRemaining;
+        float dashCooldownRemaining;
+        bool dashRequested;
+        int dashFacing;
 
         public PlayerMotor(PlayerMovementSettings settings)
         {
@@ -33,6 +38,7 @@ namespace Lampkeeper.Player
         public event Action<float> Landed;
 
         public bool IsGrounded { get; private set; }
+        public bool IsDashing { get; private set; }
 
         /// <summary>플레이어가 시작한 점프 궤적 위에 있는가. 가변 점프와 최고점 보정은 이때만 적용된다.</summary>
         public bool IsJumping { get; private set; }
@@ -43,12 +49,50 @@ namespace Lampkeeper.Player
         /// <summary>점프 입력을 버퍼에 넣는다. 버튼이 눌린 렌더 프레임(Update)에서 호출한다.</summary>
         public void RequestJump() => jumpBufferTimer = settings.jumpBufferTime;
 
+        public void RequestDash() => dashRequested = true;
+
+        public void ResetDash()
+        {
+            IsDashing = false;
+            dashRequested = false;
+            dashRemaining = dashCooldownRemaining = 0f;
+        }
+
         public Vector2 Step(Vector2 velocity, MotorInput input, bool groundDetected, float deltaTime)
         {
+            if (deltaTime <= 0f) return velocity;
+            dashCooldownRemaining = Mathf.Max(0f, dashCooldownRemaining - deltaTime);
+            if (IsDashing && dashRemaining <= TimerTolerance)
+            {
+                IsDashing = false;
+                // 대시 종료 직후 과도한 수평 관성이 남지 않게 한다.
+                velocity.x = Mathf.Clamp(velocity.x, -settings.maxRunSpeed, settings.maxRunSpeed);
+            }
             UpdateContactState(velocity.y, groundDetected, deltaTime);
 
-            if (input.MoveX != 0f)
+            if (!IsDashing && input.MoveX != 0f)
                 Facing = input.MoveX > 0f ? 1 : -1;
+
+            if (dashRequested && !IsDashing && dashCooldownRemaining <= TimerTolerance
+                && settings.dashSpeed > 0f && settings.dashDuration > 0f)
+            {
+                IsDashing = true;
+                IsJumping = false;
+                dashFacing = Facing;
+                dashRemaining = settings.dashDuration;
+                dashCooldownRemaining = settings.dashCooldown;
+            }
+            // 재사용 대기 중의 입력은 뒤늦게 실행하지 않는다.
+            dashRequested = false;
+            if (IsDashing)
+            {
+                float step = Mathf.Min(deltaTime, dashRemaining);
+                dashRemaining = Mathf.Max(0f, dashRemaining - deltaTime);
+                jumpBufferTimer = Mathf.Max(0f, jumpBufferTimer - deltaTime);
+                coyoteTimer = 0f;
+                lastOutputVelocityY = 0f;
+                return new Vector2(dashFacing * settings.dashSpeed * (step / deltaTime), 0f);
+            }
             velocity.x = StepHorizontal(velocity.x, input.MoveX, deltaTime);
 
             bool jumped = TryConsumeJump();

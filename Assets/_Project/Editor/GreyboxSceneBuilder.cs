@@ -125,7 +125,9 @@ namespace Lampkeeper.Editor
             var controller = player.GetComponent<PlayerController>();
             EditorAssetUtility.SetReference(controller, "lantern", lantern);
             CreateDebugWarp(controller);
+            DashTrialSetup.Apply(scene);
             CreateFollowCamera(camera, player.transform);
+            EncounterCameraSetup.Apply(scene);
             VisualPass.Apply(scene);
 
             EditorAssetUtility.EnsureFolder(EditorAssetUtility.ParentFolder(ScenePath));

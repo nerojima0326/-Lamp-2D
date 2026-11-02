@@ -31,6 +31,13 @@ namespace Lampkeeper.Player
         [Tooltip("가로축: 현재 속도 / 최고 속도 (0~1), 세로축: 감속도 배수.")]
         public AnimationCurve decelerationCurve = AnimationCurve.Constant(0f, 1f, 1f);
 
+        [Header("대시")]
+        [Min(0f)] public float dashSpeed = 22f;
+        [Tooltip("전방 수평 대시 지속 시간 (초)")]
+        [Min(0.01f)] public float dashDuration = 0.16f;
+        [Tooltip("대시 시작부터 다음 대시까지의 최소 시간 (초)")]
+        [Min(0f)] public float dashCooldown = 0.55f;
+
         [Header("점프")]
         [Tooltip("점프 버튼을 끝까지 누르고 있을 때의 최고 높이 (유닛)")]
         [Min(0.01f)] public float jumpHeight = 3.2f;
